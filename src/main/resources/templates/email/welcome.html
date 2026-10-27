@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:700px;margin:30px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div th:replace="~{email/fragments :: header}"></div>
+    <div style="padding:30px;">
+        <h2>Hi <span th:text="${name}">Customer</span>,</h2>
+        <p>Welcome aboard! We are thrilled to have you join us.</p>
+        <p>Your account has been created successfully. You can now browse our catalog, add items to your cart, and enjoy a smooth, secure checkout experience.</p>
+        <div style="background:#f9fafb;padding:15px;border-radius:6px;margin:20px 0;">
+            <strong>Account:</strong> Active<br>
+            <strong>Member Since:</strong> Today
+        </div>
+        <div style="text-align:center;margin:25px 0;">
+            <a th:href="${shopUrl}" style="background:#111827;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;font-size:15px;">Start Shopping</a>
+        </div>
+        <p style="margin-top:30px;color:#666666;">If you did not create this account, please contact our support team immediately.</p>
+    </div>
+    <div th:replace="~{email/fragments :: footer}"></div>
+</div>
+</body>
+</html>

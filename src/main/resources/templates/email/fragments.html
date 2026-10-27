@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="header" style="background:#111827;color:#ffffff;padding:25px;text-align:center;">
+    <h1 style="margin:0;" th:text="${brandName}">E-Commerce</h1>
+</div>
+<div th:fragment="footer" style="background:#f3f4f6;padding:20px;text-align:center;color:#777777;font-size:13px;">
+    This is an automated email from <span th:text="${brandName}">E-Commerce</span>.
+    Please do not reply to this email.
+</div>
+</body>
+</html>
