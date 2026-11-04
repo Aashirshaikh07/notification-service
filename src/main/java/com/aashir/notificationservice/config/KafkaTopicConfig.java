@@ -3,22 +3,23 @@ package com.aashir.notificationservice.config;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.config.TopicBuilder;
 
 
 @Configuration
 public class KafkaTopicConfig {
     @Bean
-    public NewTopic notificationEventsTopic() {
-        return TopicBuilder.name("notification_events")
+    public NewTopic notificationEventsTopic(@Value("${app.kafka.notification-topic}") String topic) {
+        return TopicBuilder.name(topic)
                 .partitions(3)
                 .replicas(1)
                 .build();
     }
 
     @Bean
-    public NewTopic notificationEventDltTopic() {
-        return TopicBuilder.name("notification-events.DLT")
+    public NewTopic notificationEventDltTopic(@Value("${app.kafka.notification-topic}") String topic) {
+        return TopicBuilder.name(topic + ".DLT")
                 .partitions(1)
                 .replicas(1)
                 .build();

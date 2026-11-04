@@ -18,7 +18,7 @@ public class NotificationConsumer {
         this.processor = processor;
     }
 
-    @KafkaListener(topics = "notification-events",groupId = "notification-group")
+    @KafkaListener(topics = "${app.kafka.notification-topic}",groupId = "notification-group")
     public void consume(NotificationEvent event) {
         log.info("Received notification event id ={},type={},to={}",
                 event.eventId(),event.type(),event.recipientEmail());
