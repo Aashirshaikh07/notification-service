@@ -235,3 +235,70 @@ The email templates live under `src/main/resources/templates/email/`, separate f
 This separation means I can update the content or layout of an email without changing the event-processing logic that triggers it.
 
 The processing flow and how these components work together are covered in [How It Works](#how-it-works).
+
+## Configuration and Environment Setup
+
+The service keeps its runtime configuration in `application.properties`. Connection details and credentials are supplied separately, so sensitive values don't need to be written directly into the application configuration.
+
+### Application Configuration
+
+The application runs on port `8084` and uses the following local services:
+
+| Setting | Configuration | Purpose |
+|---|---|---|
+| Application name | `notification-service` | Identifies the Spring Boot application |
+| Server port | `8084` | Embedded web server port |
+| Database | `notification_db` | Stores notification processing records |
+| Kafka broker | `localhost:9092` | Receives notification events |
+| Kafka topic | `notification-events` | Topic consumed by the service |
+| Consumer group | `notification-group` | Identifies the notification consumer group |
+
+The MySQL connection uses `createDatabaseIfNotExist=true`, allowing MySQL to create the database if it doesn't already exist. Hibernate uses `ddl-auto=update` to update the database schema based on the entity mappings.
+
+### Environment Variables
+
+The service reads database and email credentials through environment variables:
+
+| Variable | Used for |
+|---|---|
+| `DB_USERNAME` | MySQL username |
+| `DB_PASSWORD` | MySQL password |
+| `MAIL_USERNAME` | SMTP email account |
+| `MAIL_PASSWORD` | SMTP password or app password |
+
+The project imports an optional local `.env` file through:
+
+```properties
+spring.config.import=optional:file:.env[.properties]
+```
+
+For local development, create a `.env` file in the project root:
+
+```properties
+DB_USERNAME=your_mysql_username
+DB_PASSWORD=your_mysql_password
+
+MAIL_USERNAME=your_email@gmail.com
+MAIL_PASSWORD=your_email_app_password
+```
+
+Replace these placeholder values with your own credentials. The `.env` file is already included in `.gitignore`, so it should remain local and must not be committed to GitHub.
+
+### Email and Application Settings
+
+Email delivery uses Gmail SMTP with port `587` and STARTTLS enabled.
+
+The service also has two application-specific properties:
+
+| Property | Purpose |
+|---|---|
+| `app.brand-name` | Brand name displayed in email templates |
+| `app.shop-url` | Shop URL used by email templates |
+
+Their current local development values are `E-Commerce` and `http://localhost:5173`, respectively.
+
+Keeping these values configurable makes it easier to adjust the email branding and frontend URL without changing the Java code.
+
+### Configuration Note
+
+The repository currently contains `application.properties`, but does not yet include a committed `.env.example`. The actual credentials are intentionally kept outside the repository.
