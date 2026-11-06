@@ -170,3 +170,68 @@ This is an important limitation of coordinating database updates and external SM
 
 The current implementation improves reliability through event tracking, retries, and duplicate checks, but it cannot guarantee that every email is delivered exactly once.
 
+## Tech Stack
+
+The service uses Java and Spring Boot, with Kafka handling incoming events and Spring Mail taking care of email delivery. I’ve kept the responsibilities separate: event consumption, notification processing, email rendering, and delivery each have their own place in the codebase.
+
+| Technology | How it's used |
+|---|---|
+| Java 21, Maven | Application development and dependency management |
+| Spring Boot 4.1.x | Application framework |
+| Spring for Apache Kafka | Consuming notification events and handling retries and dead-letter publishing |
+| Spring Data JPA, MySQL | Persisting notification processing records in `notification_log` |
+| Thymeleaf | Rendering HTML email templates |
+| Spring Mail (SMTP) | Sending emails |
+| Jackson | Serializing and deserializing Kafka messages |
+| JUnit 5, Mockito | Writing unit tests |
+
+### Local development setup
+
+Kafka runs in a Docker container using `apache/kafka:latest`. I reuse the container across development sessions and start it with `docker start kafka` when needed. MySQL runs locally on the development machine.
+
+The service connects to Kafka at `localhost:9092` and MySQL at `localhost:3306`. It also starts an embedded web server on port `8084`, although the service currently exposes no REST endpoints. Its primary responsibility is consuming Kafka events and sending emails.
+
+## Project Structure
+
+I’ve organised the project around what each part of the service is responsible for. The structure is intentionally straightforward, so someone exploring the repository can find the relevant code without having to navigate a complicated package hierarchy.
+
+```text
+notification-service/
+├── docs/
+│   └── images/
+│       └── notification-processing-flow.svg
+├── src/
+│   ├── main/
+│   │   ├── java/com/aashir/notificationservice/
+│   │   │   ├── config/
+│   │   │   ├── consumer/
+│   │   │   ├── entity/
+│   │   │   ├── event/
+│   │   │   ├── repository/
+│   │   │   ├── sender/
+│   │   │   └── service/
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       └── templates/email/
+│   └── test/
+├── pom.xml
+└── README.md
+```
+
+### What lives where?
+
+| Package | Responsibility |
+|---|---|
+| `config` | Kafka topic and error-handling configuration |
+| `consumer` | Receives events from the `notification-events` topic |
+| `event` | Defines the notification event and its type |
+| `entity` | Stores notification log data and processing status |
+| `repository` | Handles database access for notification logs |
+| `service` | Processes events, coordinates notification delivery, and renders templates |
+| `sender` | Handles the email-sending abstraction and SMTP implementation |
+
+The email templates live under `src/main/resources/templates/email/`, separate from the Java code. `order.html` is shared by order confirmation and cancellation emails, while `welcome.html` and `password-reset-otp.html` handle the other notification types. Common email layout elements are kept in `fragments.html`.
+
+This separation means I can update the content or layout of an email without changing the event-processing logic that triggers it.
+
+The processing flow and how these components work together are covered in [How It Works](#how-it-works).
