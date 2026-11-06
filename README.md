@@ -48,27 +48,7 @@ The Notification Service processes each incoming Kafka event through a pipeline 
 
 ### Architecture Flow
 
-```mermaid
-flowchart TD
-    A["Upstream Producer Services"] -->|"NotificationEvent"| B[("Kafka: notification-events")]
-    B --> C["NotificationConsumer<br/>group: notification-group"]
-    C --> D["NotificationProcessor"]
-    D --> E["Validate eventId<br/>Find notification_log by eventId"]
-    E --> F{"Existing status?"}
-    F -->|"SENT"| G["Skip duplicate processing"]
-    F -->|"No row"| H["Insert PENDING record"]
-    F -->|"PENDING or FAILED"| I["Reuse existing record"]
-    H --> J["Increment attempt counter"]
-    I --> J
-    J --> K["NotificationService<br/>Select subject and template"]
-    K --> L["TemplateRenderer<br/>Render Thymeleaf HTML"]
-    L --> M["EmailSender"]
-    M --> N[("SMTP Server")]
-    N -->|"Send call succeeds"| O["Mark notification SENT<br/>Clear error message"]
-    M -->|"Runtime failure"| P["Mark notification FAILED<br/>Store error and rethrow"]
-    P --> Q["Kafka DefaultErrorHandler<br/>Retry with exponential backoff"]
-    Q -->|"Retries exhausted"| R[("notification-events.DLT")]
-```
+![Notification Processing Architecture](docs/images/notification-processing-flow.svg)
 
 ### Database-backed Idempotency
 
