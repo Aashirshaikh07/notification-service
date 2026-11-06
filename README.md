@@ -61,3 +61,112 @@ This is idempotent event processing, not a guarantee of exactly-once email deliv
 For retryable processing failures, the configured Kafka `DefaultErrorHandler` uses exponential backoff: an initial interval of 2 seconds, a multiplier of 2, and a maximum interval of 10 seconds, with up to 3 retries. After retries are exhausted, the failed record is published to `notification-events.DLT`.
 
 `IllegalArgumentException` is configured as non-retryable, so invalid events such as those missing an `eventId` are not retried.
+
+## Reliability
+
+The Notification Service is designed to handle duplicate events, temporary email delivery failures, and invalid messages without losing track of what happened.
+
+It combines database-backed idempotency with Kafka's retry and dead-letter mechanisms. Each notification also has a database record that tracks its processing status and attempts.
+
+### Behaviour at a glance
+
+| Situation | What happens |
+|---|---|
+| An event arrives again after its email was sent | Skipped because its record is already `SENT` |
+| Two identical events arrive concurrently | The unique constraint on `event_id` prevents a duplicate log record |
+| SMTP delivery fails | The record is marked `FAILED`, and the exception is passed to Kafka |
+| A retry succeeds | The record becomes `SENT`, and the previous error is cleared |
+| All retries are exhausted | The message is published to `notification-events.DLT` |
+| An event has no `eventId` | Rejected by the processor without retrying |
+| A message cannot be deserialized | Handled through Kafka's deserialization error handling and dead-letter recovery |
+
+### Idempotency
+
+Every notification event carries a unique `eventId`. The `notification_log` table enforces a unique constraint on `event_id`, so the same event cannot create multiple notification records.
+
+Before sending an email, `NotificationProcessor` checks whether a record already exists:
+
+| Existing record | Behaviour |
+|---|---|
+| No record | Create a new `PENDING` record and process the event |
+| `PENDING` | Continue processing using the existing record |
+| `FAILED` | Attempt processing again using the existing record |
+| `SENT` | Skip the event |
+
+There is also a concurrent duplicate safeguard. If two processing attempts try to create a record for the same event at the same time, the database unique constraint rejects the duplicate insert. The processor catches the resulting `DataIntegrityViolationException` and skips that insertion.
+
+### Tracking processing attempts
+
+The `notification_log` table keeps a record of each notification's processing history.
+
+A few fields are particularly useful when investigating failures:
+
+| Field | Purpose |
+|---|---|
+| `status` | Current state: `PENDING`, `SENT`, or `FAILED` |
+| `attempts` | Number of processing attempts |
+| `errorMessage` | Most recent processing error, limited to 1,000 characters |
+| `createdAt` | When the notification record was created |
+| `updatedAt` | When the record was last updated |
+
+The attempt counter is incremented before notification processing begins. This means Kafka retries that reach the processor are reflected in the same database record rather than creating separate records.
+
+### Retry and Dead-Letter Handling
+
+When notification processing fails, the processor marks the record as `FAILED`, stores the error message, saves the updated record, and rethrows the exception.
+
+That exception is passed to Kafka's `DefaultErrorHandler`, configured in `KafkaErrorHandlingConfig`.
+
+The retry configuration uses exponential backoff:
+
+| Setting | Configuration |
+|---|---|
+| Initial backoff | 2 seconds |
+| Backoff multiplier | 2 |
+| Maximum backoff interval | 10 seconds |
+| Maximum retries | 3 |
+| Total processing attempts | 4 (1 initial + 3 retries) |
+
+For example, if the SMTP server remains unavailable:
+
+| Attempt | Approximate time | Result |
+|---|---:|---|
+| 1 | 0 seconds | Fails |
+| 2 | 2 seconds | Fails |
+| 3 | 6 seconds | Fails |
+| 4 | 14 seconds | Fails; message sent to DLT |
+
+The maximum interval is configured as 10 seconds, although this example only reaches an 8-second backoff.
+
+`IllegalArgumentException` is explicitly configured as non-retryable. This covers invalid events such as those missing an `eventId`. Deserialization failures are also handled as non-retryable by Spring Kafka's default fatal-exception handling.
+
+After recovery, failed messages are published to the `notification-events.DLT` topic.
+
+### Handling failed events again
+
+A failed notification does not need a new database record when it is processed again.
+
+For example, imagine the SMTP server is temporarily unavailable:
+
+1. The first attempt fails, and the record becomes `FAILED`.
+2. Kafka retries the message.
+3. The processor finds the existing record using its `eventId`.
+4. The attempt counter increases, and email processing runs again.
+5. If the SMTP operation succeeds, the record becomes `SENT` and the previous error message is cleared.
+
+The same existing record is reused throughout these attempts.
+
+There is another situation worth considering: if the service stops after creating a `PENDING` record but before processing finishes, Kafka can redeliver the uncommitted message. When that happens, the processor can continue using the existing record instead of creating another one.
+
+### What it does not guarantee
+
+The service prevents an event already marked `SENT` from triggering another email attempt. However, this is not an exactly-once email delivery guarantee.
+
+Consider a situation where the SMTP server accepts an email, but the application stops before updating the database record to `SENT`.
+
+When Kafka redelivers that event, the database may still show `PENDING` or `FAILED`. The processor will attempt to send the email again, and the recipient could receive a duplicate.
+
+This is an important limitation of coordinating database updates and external SMTP delivery: the service cannot make both operations atomic.
+
+The current implementation improves reliability through event tracking, retries, and duplicate checks, but it cannot guarantee that every email is delivered exactly once.
+
