@@ -1,8 +1,32 @@
-# Notification Service
+<p align="center">
+  <h1>Notification Service</h1>
+  <strong>Event-Driven Email Delivery for an E-Commerce Platform</strong>
+  <br/>
+  A Spring Boot microservice that consumes Kafka events and delivers transactional emails asynchronously.
+</p>
 
-A Kafka-driven email notification microservice built with Spring Boot. It consumes e-commerce events and sends transactional emails using Thymeleaf templates and SMTP, with idempotent event processing to prevent duplicate notifications.
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white" alt="Java 21"/>
+  <img src="https://img.shields.io/badge/Spring%20Boot-4.1.x-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 4.1.x"/>
+  <img src="https://img.shields.io/badge/Apache%20Kafka-Event%20Streaming-231F20?logo=apachekafka&logoColor=white" alt="Apache Kafka"/>
+  <img src="https://img.shields.io/badge/MySQL-Database-4479A1?logo=mysql&logoColor=white" alt="MySQL"/>
+  <img src="https://img.shields.io/badge/Thymeleaf-Email%20Templates-005F0F?logo=thymeleaf&logoColor=white" alt="Thymeleaf"/>
+</p>
 
-Part of an event-driven e-commerce platform.
+---
+
+The Notification Service handles email delivery for an event-driven e-commerce platform. Instead of having other services send emails themselves, they publish events to Kafka, and this service takes care of the notification.
+
+It supports order confirmations, order cancellations, welcome emails, and password reset OTPs. Each notification is tracked in MySQL, with database-backed idempotency, retry handling, and a dead-letter topic to help manage processing failures.
+
+<p align="center">
+  <a href="#notification-events">Events</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#reliability">Reliability</a> •
+  <a href="#tech-stack">Tech Stack</a> •
+  <a href="#project-structure">Project Structure</a> •
+  <a href="#configuration-and-environment-setup">Configuration</a>
+</p>
 
 ## Notification Events
 
