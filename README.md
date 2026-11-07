@@ -25,7 +25,8 @@ It supports order confirmations, order cancellations, welcome emails, and passwo
   <a href="#reliability">Reliability</a> •
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#project-structure">Project Structure</a> •
-  <a href="#configuration-and-environment-setup">Configuration</a>
+  <a href="#configuration-and-environment-setup">Configuration</a> •
+  <a href="#testing">Testing</a>
 </p>
 
 ## Notification Events
@@ -322,6 +323,22 @@ The service also has two application-specific properties:
 Their current local development values are `E-Commerce` and `http://localhost:5173`, respectively.
 
 Keeping these values configurable makes it easier to adjust the email branding and frontend URL without changing the Java code.
+
+## Testing
+
+The project includes unit tests for notification processing and template selection, an SMTP integration test using GreenMail, and a Spring Boot application context test.
+
+The current automated suite contains **14 test methods**. It covers the main notification-processing decisions, all four notification types, fallback template values, and local SMTP message delivery.
+
+Run the tests from the project root:
+
+```bash
+mvn test
+```
+
+Some infrastructure-level tests are intentionally deferred: JPA repository integration, Kafka consumer integration, Kafka retry and dead-letter integration, and the complete Kafka-to-email workflow. These are not counted as completed or passing tests.
+
+See **[Testing Documentation](docs/TESTING.md)** for the test-class breakdown, coverage details, and deferred areas.
 
 ### Configuration Note
 
