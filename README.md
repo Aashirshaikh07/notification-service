@@ -26,7 +26,8 @@ It supports order confirmations, order cancellations, welcome emails, and passwo
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#project-structure">Project Structure</a> •
   <a href="#configuration-and-environment-setup">Configuration</a> •
-  <a href="#testing">Testing</a>
+  <a href="#testing">Testing</a> •
+  <a href="#running-the-application">Running the Application</a>
 </p>
 
 ## Notification Events
@@ -339,6 +340,134 @@ mvn test
 Some infrastructure-level tests are intentionally deferred: JPA repository integration, Kafka consumer integration, Kafka retry and dead-letter integration, and the complete Kafka-to-email workflow. These are not counted as completed or passing tests.
 
 See **[Testing Documentation](docs/TESTING.md)** for the test-class breakdown, coverage details, and deferred areas.
+
+## Running the Application
+
+Follow these steps to run the Notification Service locally. Start the infrastructure first, then start the Spring Boot application.
+
+### Prerequisites
+
+Make sure you have the following installed and available:
+
+- **Java 21**
+- **Maven** (or use the Maven wrapper if one is available in your local checkout)
+- **Docker Desktop** with Docker Compose
+- **MySQL** running locally on port `3306`
+- A Gmail account configured for SMTP with an app password
+
+### 1. Start Docker and Kafka
+
+First, make sure Docker Desktop is running.
+
+**If your Kafka broker is managed by a Docker Compose file**, open a terminal in the directory containing that Compose file and run:
+
+```bash
+docker compose up -d
+```
+
+This command creates (if needed) and starts the services defined in that Compose file, including Kafka if it is declared there. Check the running containers with:
+
+```bash
+docker compose ps
+```
+
+You do **not** need to run `docker start kafka` after `docker compose up -d`; Compose has already started the container.
+
+**If you are using the existing Kafka container named `kafka` instead**, start it with:
+
+```bash
+docker start kafka
+```
+
+Then confirm that it is running:
+
+```bash
+docker ps --filter "name=kafka"
+```
+
+> **Note:** This repository does not currently include a `docker-compose.yml` file. Run `docker compose up -d` from the directory where your Kafka Compose configuration actually lives. The existing-container command above is the alternative for the `kafka` container used in the local development setup.
+
+The application expects the Kafka broker to be reachable at `localhost:9092`.
+
+### 2. Start MySQL
+
+Make sure your local MySQL server is running and listening on port `3306`.
+
+The application connects to the `notification_db` database. The configured JDBC URL includes `createDatabaseIfNotExist=true`, so MySQL can create the database when the application connects, provided the configured database user has the required privileges.
+
+### 3. Configure environment variables
+
+Create a `.env` file in the project root (the same directory as `pom.xml`):
+
+```properties
+DB_USERNAME=your_mysql_username
+DB_PASSWORD=your_mysql_password
+
+MAIL_USERNAME=your_email@gmail.com
+MAIL_PASSWORD=your_gmail_app_password
+```
+
+Replace the placeholders with your own values. The application imports this file through `spring.config.import`, and `.env` is ignored by Git. Do not commit your credentials.
+
+The SMTP configuration uses Gmail on port `587` with STARTTLS. Use a Gmail app password where required; your regular Google account password is not the value to put here.
+
+### 4. Run the Spring Boot application
+
+From the project root, run:
+
+```bash
+mvn spring-boot:run
+```
+
+Wait for Spring Boot to finish starting. The application listens on port `8084` and connects to:
+
+- MySQL: `localhost:3306`
+- Kafka: `localhost:9092`
+
+The service currently has no REST endpoints. Its main job is to consume Kafka messages and send notification emails.
+
+### 5. Verify the Kafka topics
+
+The application declares the notification topic and dead-letter topic through `KafkaTopicConfig`. Once the application has connected to Kafka and initialized its topic beans, list the topics from the Kafka container:
+
+```bash
+docker exec -it kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+```
+
+You should see:
+
+- `notification-events`
+- `notification-events.DLT`
+
+If your Kafka container has a different name or uses a different Kafka installation path, adjust the `docker exec` command to match your setup.
+
+### 6. Publish a test notification event (optional)
+
+You can publish a sample `USER_REGISTERED` event to check the Kafka-to-email path manually.
+
+Open a terminal and start the Kafka console producer:
+
+```bash
+docker exec -it kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic notification-events
+```
+
+Paste this JSON as a **single line**:
+
+```json
+{"eventId":"manual-test-001","type":"USER_REGISTERED","occurredAt":"2026-11-08T10:00:00Z","recipientEmail":"your_email@example.com","recipientName":"Test User","data":{}}
+```
+
+Replace `recipientEmail` with an inbox you can access. Use a new `eventId` each time you want to test a fresh notification; an event already recorded as `SENT` will be skipped.
+
+This event is consumed by `NotificationConsumer`, processed by `NotificationProcessor`, rendered with the welcome email template, and sent through your configured Gmail SMTP account. **It sends a real email.** Press `Ctrl+C` to exit the console producer.
+
+### 7. Check the result
+
+Check the Spring Boot console for the received event and processing logs, then check the recipient inbox (including the spam folder).
+
+You can also inspect the `notification_log` table in MySQL. A successfully delivered notification should have status `SENT`; a failed attempt is recorded as `FAILED` with its error message and attempt count.
+
+If the application cannot connect, check that Docker/Kafka and MySQL are running, that the broker is reachable at `localhost:9092`, and that the values in your local `.env` file are correct.
 
 ### Configuration Note
 
