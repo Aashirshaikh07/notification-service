@@ -472,3 +472,12 @@ If the application cannot connect, check that Docker/Kafka and MySQL are running
 ### Configuration Note
 
 The repository currently contains `application.properties`, but does not yet include a committed `.env.example`. The actual credentials are intentionally kept outside the repository.
+
+## Future Improvements
+
+The following improvements are planned for future integration testing across the e-commerce services. Their implementation depends on the availability and integration of the other services.
+
+- **JPA Repository Integration Tests** — Verify database persistence, entity mapping, and duplicate event handling.
+- **Kafka Integration Tests** — Test event consumption, message deserialization, and processing with a real Kafka broker.
+- **Retry and Dead Letter Topic Tests** — Verify retry behavior and dead letter topic publishing after retries are exhausted.
+- **End-to-End Testing** — Validate the complete workflow across services, from order events to database updates and email delivery.
